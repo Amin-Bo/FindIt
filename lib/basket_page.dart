@@ -1,0 +1,134 @@
+import 'dart:convert';
+
+import 'package:flutter/material.dart';
+import 'package:mobile/cart_page.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:http/http.dart' as http;
+
+class BasketPage extends StatefulWidget {
+  const BasketPage({Key? key}) : super(key: key);
+
+  @override
+  _BasketPageState createState() => _BasketPageState();
+}
+
+class _BasketPageState extends State<BasketPage> {
+  List<Order> orders=[];
+  double total=0.0;
+  String orderId="";
+  Future getCart() async {
+    final String url="http://192.168.1.7:3000/cart/cart";
+    SharedPreferences sharedPreferences = await SharedPreferences.getInstance();
+    String token = sharedPreferences.getString('token');
+    var res = await http.get(url,headers: {"token":token});
+    if(res.statusCode==200){
+      var obj = json.decode(res.body);
+      var cart=obj['cart'];
+      orderId=cart[0]['_id'];
+      for(var i = 0; i < cart.length; i++ ){
+        Order order =Order(cart[0]['_id'], cart[i]['order']['_id'], cart[i]['order']['name'], cart[i]['order']['price'], cart[i]['order']['img']);
+        print(order);
+        orders.add(order);
+        //total+=cart[i]['quantity'] * double.parse(cart[i]['order']['price']);
+      }
+     // print("length"+orders.length.toString());
+       //   print(cart[5]['quantity']);
+      }
+    return orders;
+    }
+ CancelOrder()async{
+   final String url="http://192.168.1.7:3000/cart/delete";
+   SharedPreferences sharedPreferences = await SharedPreferences.getInstance();
+   String token = sharedPreferences.getString('token');
+   var res = await http.delete(url,headers:{
+     "_id": orderId,"token":token
+   });
+   if(res.statusCode==200){
+     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+       content: Text("Order Canceled"),
+     ));
+   }
+
+
+ }
+
+
+  @override
+  void initState() {
+    print('hello cart page');
+    getCart();
+    super.initState();
+  }
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+
+      body:Column(
+        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+        children: [
+          SizedBox(
+              height: 400,
+              child:RefreshIndicator(
+                child: FutureBuilder(
+                  future:getCart() ,
+                  builder:(BuildContext context,AsyncSnapshot snapshot){
+                    if(snapshot.data==null){
+                      return Container(
+                        child: Center(
+                          child: Text("No Internship ...",style: TextStyle(fontSize: 40,color: Colors.grey),),
+                        ),
+                      );
+                    }
+                    return ListView.builder(
+                      itemCount: snapshot.data.length,
+                      itemBuilder: (BuildContext context,int index){
+                        return ListTile(
+                          title: CartPage(id:snapshot.data[index]._id ,
+                            idOrder: snapshot.data[index]._idOrder,
+                            img:snapshot.data[index].img ,
+                            name:snapshot.data[index].name ,
+                            price:snapshot.data[index].price ,
+                          ),
+                        );
+
+                      },
+                    );
+                  } ,
+                ),
+                onRefresh: getCart,
+              )
+
+          ),
+
+
+          FlatButton(
+            onPressed: CancelOrder,
+            child: Text("Cancel Order",
+              style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w900,
+                  fontSize: 25
+              ),
+            ),
+            color: Colors.blueGrey,
+            minWidth: 300,
+            height: 50,
+            shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10)),),
+
+        ],
+      ),
+    );}
+}
+class Order{
+  final String _id;
+  final String _idOrder;
+  final  String name;
+  final String price;
+  final String img;
+
+  Order(this._id, this._idOrder, this.name, this.price, this.img);
+
+
+
+}
